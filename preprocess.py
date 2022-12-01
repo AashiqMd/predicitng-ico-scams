@@ -30,6 +30,8 @@ howell_path = DATA_DIR / 'master_data_07142019_a.csv'
 
 sapkota_path_excel = DATA_DIR / 'sapkota' / 'Scam100.xlsx'
 
+reduced_merged_data = DATA_DIR / "final_merged_data.csv"
+
 
 def convert_without_losing_NAs():
 	""" Simply converts the file (on disk) to CSV format
@@ -92,7 +94,6 @@ def merge_left(howell, sapkota, how="left", log=True):
 	matches_df = pd.merge(howell, sapkota, left_on="token_name", right_on="Name", how=how)
 	
 	matches_df["Type"].fillna(NOT_SCAM, inplace=True)
-	matches_df["Scam"] = (matches_df["Type"] != NOT_SCAM)
 
 	if log:
 		logger.info("These coins overlap! We can combine them to a single dataset")
@@ -127,6 +128,9 @@ def merge(howell, sapkota, how="inner", log=True):
 	matches_df.to_csv(DATA_DIR / 'merged_data.csv')
 	return matches_df
 
+
+def load_final_merged():
+	return pd.read_csv(reduced_merged_data)
 
 
 if __name__ == '__main__':

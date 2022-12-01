@@ -1,4 +1,4 @@
-# adapted from
+# adapted & expanded from
 # https://github.com/facebookresearch/ParlAI/blob/main/parlai/core/dict.py
 
 from collections import defaultdict
@@ -6,12 +6,9 @@ import re
 import torch
 
 import nltk
-nltk.download('stopwords')
-nltk.download('punkt')
-nltk.download('omw-1.4')
 
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
+from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.stem import WordNetLemmatizer
 import string
 
@@ -33,7 +30,8 @@ class Dictionary:
         """
         return RETOK.findall(text)
 
-    def filter_stopwords_lemmatize(self, line):
+    @staticmethod
+    def filter_stopwords_lemmatize(line):
         """
         Uses NLKTs tokenizer and lemmatizer
         Filters nltks stopwords set (not absolute)
@@ -74,7 +72,7 @@ class Dictionary:
 
         return tokens
 
-    def __init__(self, lower=True):
+    def __init__(self, lower=True, tokenizer='nltk'):
         self.num_docs = 0
         self.freq = defaultdict(int)
         self.doc_freq = defaultdict(int)
@@ -89,6 +87,7 @@ class Dictionary:
 
         self._unk_idx = self.tok2ind.get(self.UNK)
         self.lower = lower
+        self.tokenizer = tokenizer
     
     def __contains__(self, key):
         """
@@ -155,17 +154,22 @@ class Dictionary:
             self.add_token(token)
             self.freq[token] += 1
     
-    def tokenize(self, text, building=False):
+    def tokenize(self, text):
         """
         Return a sequence of tokens from the string.
         """
         if self.lower:
             text = text.lower()
 
-        # word_tokens = self.re_tokenize(text)
-        word_tokens = self.filter_stopwords_lemmatize(text)
+        if self.tokenizer == 're':
+            word_tokens = self.re_tokenize(text)
+        elif self.tokenizer == 'nltk':
+            word_tokens = self.filter_stopwords_lemmatize(text)
+        else:
+            raise RuntimeError(f'did not recognize tokenizer {self.tokenizer}')
 
         return word_tokens
+
     
     def remove_tail(self, min_freq):
         """
@@ -218,6 +222,12 @@ class Dictionary:
             self.resize_to_max(maxtokens)
         assert len(self.freq) == len(self.ind2tok) == len(self.tok2ind)
         return sorted_pairs
+    
+    def doc2vecs(self, text):
+        """
+        Tokenize into sentences, then return each sentence individually tokenized.
+        """
+        return [self.txt2vec(sent) for sent in sent_tokenize(text) if len(sent.strip()) > 0]
 
     def txt2vec(self, text: str, vec_type=list):
         """
@@ -238,36 +248,41 @@ class Dictionary:
             raise RuntimeError('Type {} not supported by dict'.format(vec_type))
         return res
 
-    def vec2txt(self, vector, delimiter=' '):
+    def vec2txt(self, vector, delimiter=' ', skip_null=False):
         """
         Convert a vector of IDs to a string.
         Converts a vector (iterable of ints) into a string, with each token separated by
         the delimiter (default ``' '``).
         """
-        return delimiter.join(self[int(idx)] for idx in vector)
+        return delimiter.join(self[int(idx)] for idx in vector if skip_null or idx != self.txt2vec[self.NULL])
+    
+    def read_file(self, filename):
+        lines = []
+        with open(filename, 'r', encoding='utf-8') as read:
+            for line in read:
+                lines.append(line.strip())
+        return ' '.join(lines)
     
     def ingest_document(self, filename):
         """
         Add all tokens in file to the dictionary and update df metrics (for tfidf).
         """
         self.num_docs += 1
-        with open(filename, 'r') as read:
-            unique_tokens = set()
-            for line in read:
-                tokens = self.tokenize(line.strip())
-                unique_tokens.update(tokens)
-                self.add_to_dict(tokens)
-            for token in unique_tokens:
-                self.doc_freq[token] += 1
+        doc = self.read_file(filename)
+        unique_tokens = set()
+        tokens = self.tokenize(doc)
+        unique_tokens.update(tokens)
+        self.add_to_dict(tokens)
+        for token in unique_tokens:
+            self.doc_freq[token] += 1
     
     def get_tfidf(self, filename, tf='doc_norm'):
         vec = torch.zeros(len(self))
-        with open(filename, 'r') as read:
-            for line in read:
-                tokens = self.tokenize(line.strip())
-                for token in tokens:
-                    vec[self[token]] += 1
-        
+        doc = self.read_file(filename)
+        tokens = self.tokenize(doc)
+        for token in tokens:
+            vec[self[token]] += 1
+
         if tf == 'raw':
             pass  # don't normalize
         elif tf == 'doc_norm':

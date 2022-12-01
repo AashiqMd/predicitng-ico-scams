@@ -15,14 +15,22 @@ model: mlp
 nonlin: relu
 num_layers: 1
 dropout: 0
+rnn_out: hidden
+rnn_dropout: False
+rnn_type: gru
+rnn_bidir: False
+
+# dict params
+tokenizer: re
 
 # training params
-valid_every_n: 3
-bs: 4
-num_epochs: 12
-num_feats: 18
-hdim: 8
-weight_classes: true  # probably need true
+valid_every_n: 1
+bs: 128  # bigger batches are more hardware-efficient
+num_epochs: 25
+num_feats: 18  # should be set based on the task: 18 for full, 37 for extended
+edim: 16
+hdim: 32
+weight_classes: true  # probably need true, dataset fairly imbalanced
 pos_weight_mod: 1.0  # hard to justify anything other than 1 here
 
 # optimizer params
