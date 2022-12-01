@@ -1,0 +1,33 @@
+defaults:
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+
+# basic params
+cuda: false     # override to manually disable cuda, otherwise will use gpu if available (silently switches to cpu if not)
+random_seed: 42
+model_dir: outputs
+data_file: matches.csv
+split: 0.2  # train/valid split
+task: full
+
+# model params
+model: mlp
+nonlin: relu
+num_layers: 1
+dropout: 0
+
+# training params
+valid_every_n: 3
+bs: 4
+num_epochs: 12
+num_feats: 18
+hdim: 8
+weight_classes: true  # probably need true
+pos_weight_mod: 1.0  # hard to justify anything other than 1 here
+
+# optimizer params
+scheduler: plateau
+optim: adam
+lr: 0.001
+weight_decay: 5e-4
+momentum: 0.95

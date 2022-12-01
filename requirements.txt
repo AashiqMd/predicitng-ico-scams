@@ -1,0 +1,9 @@
+pandas
+openpyxl
+hydra-core
+hydra_colorlog
+torch
+torchvision
+torchaudio
+tqdm
+nltk
